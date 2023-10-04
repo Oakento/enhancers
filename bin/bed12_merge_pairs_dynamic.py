@@ -23,31 +23,28 @@ class DivergentPeakPair(object):
 class PairSet:
     def __init__(self, pair: DivergentPeakPair) -> None:
         self.chrom = pair.m_peak.chrom
-        self.range_m = []
-        self.range_p = []
+        self.range_m = [pair.m_peak.pos0, pair.m_peak.pos1]
+        self.range_p = [pair.p_peak.pos0, pair.p_peak.pos1]
         self.m_peaks = [pair.m_peak]
         self.p_peaks = [pair.p_peak]
 
-    def __update_range(self):
-        self.range_m = [
-            min([x.pos0 for x in self.m_peaks]), 
-            max([x.pos1 for x in self.m_peaks])
-        ]
-        self.range_p = [
-            min([x.pos0 for x in self.p_peaks]), 
-            max([x.pos1 for x in self.p_peaks])
-        ]
-
     def merge_if_intersect(self, pair: DivergentPeakPair):
-        self.__update_range()
         if pair.m_peak.chrom != self.chrom or pair.m_peak.pos0 >= self.range_p[1]:
             return False
         self.m_peaks.append(pair.m_peak)
         self.p_peaks.append(pair.p_peak)
+        
+        if pair.m_peak.pos0 < self.range_m[0]:
+            self.range_m[0] = pair.m_peak.pos0
+        if pair.m_peak.pos1 > self.range_m[1]:
+            self.range_m[1] = pair.m_peak.pos1
+        if pair.p_peak.pos0 < self.range_p[0]:
+            self.range_p[0] = pair.p_peak.pos0
+        if pair.p_peak.pos1 > self.range_p[1]:
+            self.range_p[1] = pair.p_peak.pos1
         return True
 
     def export(self):
-        self.__update_range()
         self.m_peaks.sort(key=lambda x: x.pos1)
         self.p_peaks.sort(key=lambda x: x.pos0, reverse=True)
         while self.range_p[0] < self.range_m[1]:
@@ -61,7 +58,8 @@ class PairSet:
                     self.p_peaks.pop()
                 elif len(self.m_peaks) > 1:
                     self.m_peaks.pop()
-            self.__update_range()
+            self.range_p[0] = self.p_peaks[-1].pos0
+            self.range_m[1] = self.m_peaks[-1].pos1
         
         highest_score = [
             max([x.score for x in self.m_peaks]),
